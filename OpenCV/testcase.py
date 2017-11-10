@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import imutils
 import pickle
+import math
 
 class Box:
 	_xMin = 0
@@ -18,15 +19,6 @@ class Box:
 	def __repr__(self):
 		return "(" + str(self._xMin) + ", " + str(self._yMin) + ")" + "(" + str(self._xMax) + ", " + str(self._yMax) + ")"
 
-def adjust(xMin, yMin, xMax, yMax, x, y):
-	xMin = x - xMin
-	yMin = y - yMin
-	xMax = xMax - xMin
-	yMax = yMax - yMin
-	box = Box(xMin, yMin, xMax, yMax)
-	print box
-	return box
-
 class MyImage:
 	def __init__(self, img_name, img_ext):
 		self.img = cv2.imread(img_name+img_ext)
@@ -41,92 +33,93 @@ class MyImage:
 		cv2.imshow(self.name, self.img)
 		cv2.waitKey(0)
 
-	def resize(self, scaling):
-		width = self.img.shape[1]
-		height = self.img.shape[0]
-		widthResized = int(width*scaling)
-		heightResized = int(height*scaling)
-		resized = cv2.resize(self.img, (widthResized,heightResized))
-		resizedName = self.name + '_' + str(scaling) + 'x_' + str(widthResized) + 'x' + str(heightResized) + self.ext
-		self.img = resized
-		self.name = resizedName
+def resize(image, scaling):
+	width = image.shape[1]
+	height = image.shape[0]
+	widthResized = int(width*scaling)
+	heightResized = int(height*scaling)
+	resized = cv2.resize(image, (widthResized,heightResized))
+	return resized
 
-	def rotate(self, angle):
-		rotated = imutils.rotate_bound(self.img, angle)
-		rotatedName = self.name + '_' + str(angle) + self.ext
-		self.img = rotated
-		self.name = rotatedName
+def rotate(image, angle):
+	rotated = imutils.rotate_bound(image, angle)
+	return rotated
 
-	def boundingBox(self):
-		w = self.img.shape[1]
-		h = self.img.shape[0]
-		xMin = w
-		xMax = 0
-		yMin = h
-		yMax = 0
-		black = np.zeros((1,1,3), np.uint8)
-		for col in range (0, w):
-			for row in range (0, h):
-				if (np.any(self.img[row][col] != black)):
-					xMin = min(xMin, col)
-					xMax = max(xMax, col)
-					yMin = min(yMin, row)
-					yMax = max(yMax, row)
+def process(image, scaling, angle):
+	resized = resize(image, scaling)
+	rotatedAndResized = rotate(resized, angle)
+	return rotatedAndResized
 
-		box = Box(xMin, yMin, xMax, yMax)
-		self.box = box
+def boundingBox(image):
+	w = image.shape[1]
+	h = image.shape[0]
+	xMin = w
+	xMax = 0
+	yMin = h
+	yMax = 0
+	black = np.zeros((1,1,3), np.uint8)
+	for col in range (0, w):
+		for row in range (0, h):
+			if (np.any(image[row][col] != black)):
+				xMin = min(xMin, col)
+				xMax = max(xMax, col)
+				yMin = min(yMin, row)
+				yMax = max(yMax, row)
 
-	def overlay(self, background, box, xDesired, yDesired, xTip, yTip):
-		wBg = background.img.shape[1] -1
-		hBg = background.img.shape[0] -1
-		wFg = self.img.shape[1] -1
-		hFg = self.img.shape[0] -1
-		xOffset = xDesired - xTip
-		yOffset = yDesired - yTip
-		xBgStart = max(0, 0 + xOffset)
-		yBgStart = max(0, 0 + yOffset)
-		xBgEnd = min(wBg, wFg + xOffset)
-		yBgEnd = min(hBg, hFg + yOffset)
+	box = Box(xMin, yMin, xMax, yMax)
+	return box
 
-		wHand = box._xMax - box._xMin 
-		hHand = box._yMax - box._yMin
-		xBoxStart = max(0, box._xMin + xOffset)
-		yBoxStart = max(0, box._yMin + yOffset)
-		xBoxEnd = min(wBg, box._xMax + xOffset)
-		yBoxEnd = min(hBg, box._yMax + yOffset)
-		print xBoxStart, xBoxEnd, yBoxStart, yBoxEnd
+def overlay(arm, background, box, xDesired, yDesired, xTip, yTip):
+	wBg = background.shape[1] -1
+	hBg = background.shape[0] -1
+	wFg = arm.shape[1] -1
+	hFg = arm.shape[0] -1
+	xOffset = xDesired - xTip
+	yOffset = yDesired - yTip
+	xBgStart = max(0, 0 + xOffset)
+	yBgStart = max(0, 0 + yOffset)
+	xBgEnd = min(wBg, wFg + xOffset)
+	yBgEnd = min(hBg, hFg + yOffset)
 
-		bgCrop = background.img[yBgStart:yBgEnd, xBgStart:xBgEnd]
-		
-		xFgStart = xBgStart - xOffset
-		yFgStart = yBgStart - yOffset
-		xFgEnd = xBgEnd - xOffset
-		yFgEnd = yBgEnd - yOffset
+	wHand = box._xMax - box._xMin 
+	hHand = box._yMax - box._yMin
+	xBoxStart = max(0, box._xMin + xOffset)
+	yBoxStart = max(0, box._yMin + yOffset)
+	xBoxEnd = min(wBg, box._xMax + xOffset)
+	yBoxEnd = min(hBg, box._yMax + yOffset)
+	print xBoxStart, xBoxEnd, yBoxStart, yBoxEnd
 
-		fgCrop = self.img[yFgStart:yFgEnd, xFgStart:xFgEnd]
+	bgCrop = background[yBgStart:yBgEnd, xBgStart:xBgEnd]
+	
+	xFgStart = xBgStart - xOffset
+	yFgStart = yBgStart - yOffset
+	xFgEnd = xBgEnd - xOffset
+	yFgEnd = yBgEnd - yOffset
 
-		# Now create a mask and create its inverse
-		fgImgGray = cv2.cvtColor(fgCrop,cv2.COLOR_BGR2GRAY)
-		ret, mask = cv2.threshold(fgImgGray, 10, 255, cv2.THRESH_BINARY)
-		mask_inv = cv2.bitwise_not(mask)
+	fgCrop = arm[yFgStart:yFgEnd, xFgStart:xFgEnd]
 
-		# Now black-out the area of logo in ROI
-		bgCropMasked = cv2.bitwise_and(bgCrop,bgCrop, mask = mask_inv)
+	# Now create a mask and create its inverse
+	fgImgGray = cv2.cvtColor(fgCrop,cv2.COLOR_BGR2GRAY)
+	ret, mask = cv2.threshold(fgImgGray, 10, 255, cv2.THRESH_BINARY)
+	mask_inv = cv2.bitwise_not(mask)
 
-		# Put logo in ROI and modify the main image
-		overlayed = cv2.add(bgCropMasked,fgCrop)
-		result = np.copy(background.img)
-		result[yBgStart:yBgEnd, xBgStart:xBgEnd] = overlayed
+	# Now black-out the area of logo in ROI
+	bgCropMasked = cv2.bitwise_and(bgCrop,bgCrop, mask = mask_inv)
 
-		for col in range (xBoxStart, xBoxEnd, 1):
-			result[yBoxStart][col] = [255,255,255]
-			result[yBoxEnd][col] = [255,255,255]
-		for row in range (yBoxStart, yBoxEnd, 1):
-			result[row][xBoxStart] = [255,255,255]
-			result[row][xBoxEnd] = [255,255,255]
+	# Put logo in ROI and modify the main image
+	overlayed = cv2.add(bgCropMasked,fgCrop)
+	result = np.copy(background)
+	result[yBgStart:yBgEnd, xBgStart:xBgEnd] = overlayed
 
-		cv2.imshow('res',result)
-		cv2.waitKey(0)
+	for col in range (xBoxStart, xBoxEnd, 1):
+		result[yBoxStart][col] = [255,255,255]
+		result[yBoxEnd][col] = [255,255,255]
+	for row in range (yBoxStart, yBoxEnd, 1):
+		result[row][xBoxStart] = [255,255,255]
+		result[row][xBoxEnd] = [255,255,255]
+
+	cv2.imshow('res',result)
+	cv2.waitKey(0)
 
 # Input: image
 # Output: bounding box of xMin, yMin, xMax, yMax
@@ -149,29 +142,57 @@ def boundingTest(image, box):
 # 	xStart = 0 if (fgBox._xMin < 0) else fgBox._xMin
 # 	yStart = 0 if (fgBox._yMin < 0) else fgBox._yMin
 
-def createData (arm, hand, tip, background, scaling, angle):
-	arm.resize(scaling)
-	arm.rotate(angle)
+def createData (armImg, handImg, tipImg, backgroundImg, scaling, angle):
+	arm = process(armImg, scaling, angle)
 
-	hand.resize(scaling)
-	hand.rotate(angle)
-	hand.boundingBox()
+	hand = process(handImg, scaling, angle)
+	handBox = boundingBox(hand)
 
-	# boundingTest(hand.img,hand.box)
+	tip = process(tipImg, scaling, angle)
+	tipBox = boundingBox(tip)
 
-	tip.resize(scaling)
-	tip.rotate(angle)
-	tip.boundingBox()
-	fgBox = tip.box
-
-	boundingTest(tip.img,tip.box)
-
-	xTip = ((fgBox._xMin + fgBox._xMax)/2)
-	yTip = ((fgBox._yMin + fgBox._yMax)/2)
+	xTip = ((tipBox._xMin + tipBox._xMax)/2)
+	yTip = ((tipBox._yMin + tipBox._yMax)/2)
 
 	for i in range (10, 1000, 200):
 		for j in range (10, 1000, 200):
-			arm.overlay(background, hand.box, i, j, xTip, yTip)
+			overlay(arm, backgroundImg, handBox, i, j, xTip, yTip)
+
+def pad (arm, hand, tip):
+	box = boundingBox(arm)
+	cX = arm.shape[1] // 2
+	cY = arm.shape[0] // 2
+	radius = max(math.hypot((cX-box._xMin),(cY-box._yMin)),math.hypot((box._xMax-cX),(box._yMax-cY)))
+	radius = ((radius + 44) // 5 * 5)
+	diameter = int(2*radius)
+	new = np.zeros((diameter,diameter,3), np.uint8)
+	newX = new.shape[1] // 2
+	newY = new.shape[0] // 2
+
+	xStart = new.shape[1] // 2 - cX
+	yStart = new.shape[0] // 2 - cY
+	xEnd = new.shape[1] // 2 + cX
+	yEnd = new.shape[0] // 2 + cY	
+
+	for col in range (0, arm.shape[1], 1):
+		for row in range (0, arm.shape[0], 1):
+			new[yStart+row][xStart+col] = tip[row][col]
+
+	cv2.imwrite("Tip_Pad.png", new)
+
+	for col in range (0, arm.shape[1], 1):
+		for row in range (0, arm.shape[0], 1):
+			new[yStart+row][xStart+col] = hand[row][col]
+
+	cv2.imwrite("Hand_Pad.png", new)
+
+	for col in range (0, arm.shape[1], 1):
+		for row in range (0, arm.shape[0], 1):
+			new[yStart+row][xStart+col] = arm[row][col]
+
+	cv2.imwrite("Arm_Pad.png", new)
+
+	return new
 
 fileArm = 'A_Arm'
 fileHand = 'A_Hand'
@@ -188,7 +209,10 @@ tip = MyImage(fileTip,ext)
 background = MyImage(background,'.jpg')
 
 # createData(arm, hand, tip, background, scaling, angle)
-createData(arm, hand, tip, background, scaling, 30)
+# for angle in range (-10, 10, 3):
+# 	createData(arm.img, hand.img, tip.img, background.img, scaling, angle)
+
+pad(arm.img, hand.img, tip.img)
 
 
 
