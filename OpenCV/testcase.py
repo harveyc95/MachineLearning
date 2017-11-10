@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import imutils
+import pickle
 
 class Box:
 	_xMin = 0
@@ -75,28 +76,32 @@ class MyImage:
 		box = Box(xMin, yMin, xMax, yMax)
 		self.box = box
 
-	def overlay(self, background, xDesired, yDesired, xTip, yTip):
-		black = np.zeros((1080,1920,3), np.uint8)
-		w = self.img.shape[1]
-		h = self.img.shape[0]
+	def overlay(self, background, box, xDesired, yDesired, xTip, yTip):
+		wBg = background.img.shape[1] -1
+		hBg = background.img.shape[0] -1
+		wFg = self.img.shape[1] -1
+		hFg = self.img.shape[0] -1
 		xOffset = xDesired - xTip
 		yOffset = yDesired - yTip
 		xBgStart = max(0, 0 + xOffset)
 		yBgStart = max(0, 0 + yOffset)
-		xBgEnd = min(1920, w + xOffset)
-		yBgEnd = min(1080, h + yOffset)
+		xBgEnd = min(wBg, wFg + xOffset)
+		yBgEnd = min(hBg, hFg + yOffset)
 
-		print xBgEnd-xBgStart, yBgEnd-yBgStart
+		wHand = box._xMax - box._xMin 
+		hHand = box._yMax - box._yMin
+		xBoxStart = max(0, box._xMin + xOffset)
+		yBoxStart = max(0, box._yMin + yOffset)
+		xBoxEnd = min(wBg, box._xMax + xOffset)
+		yBoxEnd = min(hBg, box._yMax + yOffset)
+		print xBoxStart, xBoxEnd, yBoxStart, yBoxEnd
 
 		bgCrop = background.img[yBgStart:yBgEnd, xBgStart:xBgEnd]
-		# cv2.imshow('bgCrop', bgCrop)
 		
 		xFgStart = xBgStart - xOffset
 		yFgStart = yBgStart - yOffset
 		xFgEnd = xBgEnd - xOffset
 		yFgEnd = yBgEnd - yOffset
-
-		print xFgEnd-xFgStart, yFgEnd-yFgStart
 
 		fgCrop = self.img[yFgStart:yFgEnd, xFgStart:xFgEnd]
 
@@ -112,6 +117,14 @@ class MyImage:
 		overlayed = cv2.add(bgCropMasked,fgCrop)
 		result = np.copy(background.img)
 		result[yBgStart:yBgEnd, xBgStart:xBgEnd] = overlayed
+
+		for col in range (xBoxStart, xBoxEnd, 1):
+			result[yBoxStart][col] = [255,255,255]
+			result[yBoxEnd][col] = [255,255,255]
+		for row in range (yBoxStart, yBoxEnd, 1):
+			result[row][xBoxStart] = [255,255,255]
+			result[row][xBoxEnd] = [255,255,255]
+
 		cv2.imshow('res',result)
 		cv2.waitKey(0)
 
@@ -119,13 +132,14 @@ class MyImage:
 # Output: bounding box of xMin, yMin, xMax, yMax
 # Note: assumes entire image is black except the part looking for bounding box
 
-def boudingTest(image, box):
+def boundingTest(image, box):
 	for col in range (box._xMin, box._xMax, 1):
 		image[box._yMin][col] = [255,255,255]
 		image[box._yMax][col] = [255,255,255]
 	for row in range (box._yMin, box._yMax, 1):
 		image[row][box._xMin] = [255,255,255]
 		image[row][box._xMax] = [255,255,255]
+	cv2.imshow('boundingTest', image)
 	return image
 
 
@@ -141,22 +155,23 @@ def createData (arm, hand, tip, background, scaling, angle):
 
 	hand.resize(scaling)
 	hand.rotate(angle)
+	hand.boundingBox()
+
+	# boundingTest(hand.img,hand.box)
 
 	tip.resize(scaling)
 	tip.rotate(angle)
 	tip.boundingBox()
 	fgBox = tip.box
-	xFg = ((fgBox._xMin + fgBox._xMax)/2)
-	yFg = ((fgBox._yMin + fgBox._yMax)/2)
-	print xFg, yFg
-	xDesired = 200
-	yDesired = 600
 
-	print "overlay"
+	boundingTest(tip.img,tip.box)
+
+	xTip = ((fgBox._xMin + fgBox._xMax)/2)
+	yTip = ((fgBox._yMin + fgBox._yMax)/2)
 
 	for i in range (10, 1000, 200):
 		for j in range (10, 1000, 200):
-			arm.overlay(background, i, j, xFg, yFg)
+			arm.overlay(background, hand.box, i, j, xTip, yTip)
 
 fileArm = 'A_Arm'
 fileHand = 'A_Hand'
@@ -172,7 +187,8 @@ hand = MyImage(fileHand,ext)
 tip = MyImage(fileTip,ext)
 background = MyImage(background,'.jpg')
 
-createData(arm, hand, tip, background, scaling, angle)
+# createData(arm, hand, tip, background, scaling, angle)
+createData(arm, hand, tip, background, scaling, 30)
 
 
 
