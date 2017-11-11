@@ -177,22 +177,17 @@ def pad (arm, hand, tip):
 	for col in range (0, arm.shape[1], 1):
 		for row in range (0, arm.shape[0], 1):
 			new[yStart+row][xStart+col] = tip[row][col]
-
 	cv2.imwrite("Tip_Pad.png", new)
 
 	for col in range (0, arm.shape[1], 1):
 		for row in range (0, arm.shape[0], 1):
 			new[yStart+row][xStart+col] = hand[row][col]
-
 	cv2.imwrite("Hand_Pad.png", new)
 
 	for col in range (0, arm.shape[1], 1):
 		for row in range (0, arm.shape[0], 1):
 			new[yStart+row][xStart+col] = arm[row][col]
-
 	cv2.imwrite("Arm_Pad.png", new)
-
-	return new
 
 fileArm = 'A_Arm'
 fileHand = 'A_Hand'
@@ -208,9 +203,9 @@ hand = MyImage(fileHand,ext)
 tip = MyImage(fileTip,ext)
 background = MyImage(background,'.jpg')
 
-# createData(arm, hand, tip, background, scaling, angle)
-# for angle in range (-10, 10, 3):
-# 	createData(arm.img, hand.img, tip.img, background.img, scaling, angle)
+createData(arm, hand, tip, background, scaling, angle)
+for angle in range (-10, 10, 3):
+	createData(arm.img, hand.img, tip.img, background.img, scaling, angle)
 
 pad(arm.img, hand.img, tip.img)
 
