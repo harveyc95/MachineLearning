@@ -3,6 +3,7 @@ import numpy as np
 import imutils
 import pickle
 import math
+import os
 
 class Box:
 	_xMin = 0
@@ -189,15 +190,17 @@ def pad (arm, hand, tip):
 			new[yStart+row][xStart+col] = arm[row][col]
 	cv2.imwrite("Arm_Pad.png", new)
 
-def getFrame (video, frameToSkip):
-	frame = None
-	for i in range (0, frameToSkip):
-		if (video.isOpened()):
-			ret, frame = video.read()
-		else:
-			return -1
-	cv2.imshow('frame',frame)
-	cv2.waitKey(0)
+# return list of frames from videoFile at framesToSkip intervals
+def getFrames (videoFile, framesToSkip):
+	vid = cv2.VideoCapture(videoFile)
+	length = int(vid.get(cv2.CAP_PROP_FRAME_COUNT))
+	print length
+	frames = []
+	for i in range (0, (length//framesToSkip)):
+		vid.set(1, i*framesToSkip)
+		ret, frame = vid.read()
+		frames.append(frame)
+	return frames
 
 fileArm = 'A_Arm'
 fileHand = 'A_Hand'
@@ -219,16 +222,11 @@ background = MyImage(background,'.jpg')
 
 # pad(arm.img, hand.img, tip.img)
 
-video = cv2.VideoCapture('Wildlife.mp4')
-getFrame(video, 100)
-getFrame(video, 100)
-getFrame(video, 100)
-getFrame(video, 100)
-getFrame(video, 100)
-getFrame(video, 100)
-getFrame(video, 100)
-getFrame(video, 100)
-getFrame(video, 100)
+cwd = os.getcwd()
+frames = getFrames(cwd+'/Video/'+'Cosmos.mp4', 500)
 
-
+print len(frames)
+for frame in frames:
+	cv2.imshow('frame', frame)
+	cv2.waitKey(0)
 
