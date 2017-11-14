@@ -189,6 +189,16 @@ def pad (arm, hand, tip):
 			new[yStart+row][xStart+col] = arm[row][col]
 	cv2.imwrite("Arm_Pad.png", new)
 
+def getFrame (video, frameToSkip):
+	frame = None
+	for i in range (0, frameToSkip):
+		if (video.isOpened()):
+			ret, frame = video.read()
+		else:
+			return -1
+	cv2.imshow('frame',frame)
+	cv2.waitKey(0)
+
 fileArm = 'A_Arm'
 fileHand = 'A_Hand'
 fileTip = 'A_Tip'
@@ -203,11 +213,22 @@ hand = MyImage(fileHand,ext)
 tip = MyImage(fileTip,ext)
 background = MyImage(background,'.jpg')
 
-createData(arm, hand, tip, background, scaling, angle)
-for angle in range (-10, 10, 3):
-	createData(arm.img, hand.img, tip.img, background.img, scaling, angle)
+# createData(arm, hand, tip, background, scaling, angle)
+# for angle in range (-10, 10, 3):
+# 	createData(arm.img, hand.img, tip.img, background.img, scaling, angle)
 
-pad(arm.img, hand.img, tip.img)
+# pad(arm.img, hand.img, tip.img)
+
+video = cv2.VideoCapture('Wildlife.mp4')
+getFrame(video, 100)
+getFrame(video, 100)
+getFrame(video, 100)
+getFrame(video, 100)
+getFrame(video, 100)
+getFrame(video, 100)
+getFrame(video, 100)
+getFrame(video, 100)
+getFrame(video, 100)
 
 
 
